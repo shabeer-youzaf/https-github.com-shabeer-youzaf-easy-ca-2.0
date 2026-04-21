@@ -1270,6 +1270,14 @@ export const chapters: Chapter[] = [
     { id: 23, subjectId: "BT", title: "Personal Effectiveness", description: "Time management and effectiveness.", content: { ...DEFAULT_CONTENT, explanation: { ...DEFAULT_CONTENT.explanation, malayalam: CHAPTER_23_TEXT } }, malayalamAudioUrl: "https://files.catbox.moe/folw4y.mp3" },
     { id: 24, subjectId: "BT", title: "Professional Development", description: "Lifelong learning.", content: DEFAULT_CONTENT, malayalamAudioUrl: "https://files.catbox.moe/wqg9ka.mp3" },
     { 
+      id: 9, 
+      subjectId: "MA", 
+      title: "Alternative costing principles", 
+      description: "Modern costing techniques including ABC, Target costing, and Life-cycle costing.", 
+      content: DEFAULT_CONTENT, 
+      malayalamAudioUrl: "https://files.catbox.moe/lhjuju.mp3" 
+    },
+    { 
       id: 10, 
       subjectId: "MA", 
       title: "Sources of Data", 
