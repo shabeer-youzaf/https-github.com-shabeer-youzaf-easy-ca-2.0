@@ -3,7 +3,9 @@ export interface BaseQuestion {
   id: string;
   marks: number;
   explanation: string;
+  explanationMal: string; // Malayalam explanation for wrong answers
   topic: string;
+  subjectId?: string; // Optional to filter by subject (BT, MA, etc.)
 }
 
 export interface SingleChoiceQuestion extends BaseQuestion {

@@ -1269,6 +1269,66 @@ export const chapters: Chapter[] = [
     { id: 22, subjectId: "BT", title: "Review and Appraisal", description: "Individual performance review.", content: { ...DEFAULT_CONTENT, explanation: { ...DEFAULT_CONTENT.explanation, malayalam: CHAPTER_22_TEXT } }, malayalamAudioUrl: "https://files.catbox.moe/3zwgmg.mp3" },
     { id: 23, subjectId: "BT", title: "Personal Effectiveness", description: "Time management and effectiveness.", content: { ...DEFAULT_CONTENT, explanation: { ...DEFAULT_CONTENT.explanation, malayalam: CHAPTER_23_TEXT } }, malayalamAudioUrl: "https://files.catbox.moe/folw4y.mp3" },
     { id: 24, subjectId: "BT", title: "Professional Development", description: "Lifelong learning.", content: DEFAULT_CONTENT, malayalamAudioUrl: "https://files.catbox.moe/wqg9ka.mp3" },
+    // Management Accounting (MA) Chapters
+    { 
+      id: 1, 
+      subjectId: "MA", 
+      title: "Accounting for Management", 
+      description: "Introduction to management accounting, its purpose and comparison with financial accounting.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 2, 
+      subjectId: "MA", 
+      title: "Cost Classification", 
+      description: "Classification of costs by nature, function, and behavior.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 3, 
+      subjectId: "MA", 
+      title: "Accounting for Materials", 
+      description: "Ordering, receiving, and issuing materials. Economic Order Quantity (EOQ).", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 4, 
+      subjectId: "MA", 
+      title: "Accounting for Labour", 
+      description: "Labour costs, remuneration methods, and labour turnover.", 
+      content: DEFAULT_CONTENT,
+      malayalamAudioUrl: "https://files.catbox.moe/ujbqk6" 
+    },
+    { 
+      id: 5, 
+      subjectId: "MA", 
+      title: "Accounting for Overheads", 
+      description: "Allocation, apportionment, and absorption of overheads.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 6, 
+      subjectId: "MA", 
+      title: "Absorption and Marginal Costing", 
+      description: "Comparison of absorption costing and marginal costing. Profit reconciliation.", 
+      content: DEFAULT_CONTENT,
+      malayalamAudioUrl: "https://gofile.io/d/J8XnuT" 
+    },
+    { 
+      id: 7, 
+      subjectId: "MA", 
+      title: "Job, Batch and Process Costing", 
+      description: "Costing for specific orders and continuous processes.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 8, 
+      subjectId: "MA", 
+      title: "Service and Operation Costing", 
+      description: "Costing for internal and external services.", 
+      content: DEFAULT_CONTENT,
+      malayalamAudioUrl: "https://gofile.io/d/MlD12k" 
+    },
     { 
       id: 9, 
       subjectId: "MA", 
@@ -1288,4 +1348,74 @@ export const chapters: Chapter[] = [
       }, 
       malayalamAudioUrl: "https://files.catbox.moe/jfdi21.mp3" 
     },
+    { 
+      id: 11, 
+      subjectId: "MA", 
+      title: "Analysing Data", 
+      description: "Techniques for data analysis and presentation.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 12, 
+      subjectId: "MA", 
+      title: "Analytical Techniques in Budgeting and Forecasting", 
+      description: "Regression analysis, time series, and other forecasting techniques.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 13, 
+      subjectId: "MA", 
+      title: "Budgeting", 
+      description: "Budget preparation, control, and behavioral aspects.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 14, 
+      subjectId: "MA", 
+      title: "Investment Appraisal", 
+      description: "Capital investment decision making using NPV, IRR, and payback.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 15, 
+      subjectId: "MA", 
+      title: "Standard Costing", 
+      description: "Variance analysis and performance measurement against standards.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 16, 
+      subjectId: "MA", 
+      title: "Performance Measurement", 
+      description: "Financial and non-financial performance indicators. The Balanced Scorecard.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 17, 
+      subjectId: "MA", 
+      title: "Presenting Information", 
+      description: "Effective communication of financial and management information.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 18, 
+      subjectId: "MA", 
+      title: "Spreadsheets", 
+      description: "Using spreadsheets for management accounting and data analysis.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 19, 
+      subjectId: "MA", 
+      title: "Practice Questions", 
+      description: "Comprehensive practice questions covering all modules.", 
+      content: DEFAULT_CONTENT 
+    },
+    { 
+      id: 20, 
+      subjectId: "MA", 
+      title: "Practice Answers", 
+      description: "Detailed answers and explanations for practice questions.", 
+      content: DEFAULT_CONTENT 
+    }
 ];

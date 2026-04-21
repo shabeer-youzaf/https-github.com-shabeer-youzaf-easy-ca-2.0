@@ -10,6 +10,7 @@ import { Home, RefreshCw, Sun, Moon, HelpCircle } from './components/Icons.tsx';
 import type { Chapter, MockQuestion, UserAnswer } from './types.ts';
 import { chapters } from './data/chapters.ts';
 import { mockQuestions } from './data/mockExamQuestions.ts';
+import { maMockQuestions } from './data/maMockQuestions.ts';
 
 type View = 'subjects' | 'home' | 'chapter' | 'developer' | 'mockExam' | 'examResults';
 type Theme = 'light' | 'dark';
@@ -26,6 +27,8 @@ const App: React.FC = () => {
       userAnswers: UserAnswer[];
       questions: MockQuestion[];
   } | null>(null);
+
+  const [examId, setExamId] = useState(0);
 
   const [theme, setTheme] = useState<Theme>(() => {
       if (typeof window !== 'undefined') {
@@ -88,6 +91,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleStartMockExam = useCallback(() => {
+      setExamId(prev => prev + 1);
       setView('mockExam');
   }, []);
 
@@ -126,7 +130,15 @@ const App: React.FC = () => {
       case 'chapter':
         return <ChapterPage chapter={selectedChapter!} onGoHome={handleGoSubjectDashboard} onUpdateChapterScore={handleUpdateChapterScore} />;
       case 'mockExam':
-        return <MockExamPage questions={mockQuestions} onFinishExam={handleFinishExam} onGoHome={handleGoSubjectDashboard} />;
+        const subjectNameMock = selectedSubject === 'BT' ? 'Business & Technology' : selectedSubject === 'MA' ? 'Management Accounting' : 'ACCA Exam';
+        const subjectQuestions = selectedSubject === 'MA' ? maMockQuestions : mockQuestions;
+        return <MockExamPage 
+          key={examId} 
+          questions={subjectQuestions} 
+          subjectName={subjectNameMock} 
+          onFinishExam={handleFinishExam} 
+          onGoHome={handleGoSubjectDashboard} 
+        />;
       case 'examResults':
         return <ExamResultsPage results={examResults!} onRestart={handleStartMockExam} onGoHome={handleGoSubjectDashboard} />;
       case 'home':

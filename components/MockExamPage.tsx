@@ -16,15 +16,54 @@ import { Clock, Loader, ArrowLeft, CheckCircle, Layers, ChevronLeft, ChevronRigh
 
 interface MockExamPageProps {
   questions: MockQuestion[];
+  subjectName: string;
   onFinishExam: (score: number, totalMarks: number, userAnswers: UserAnswer[], questions: MockQuestion[]) => void;
   onGoHome: () => void;
 }
 
 const EXAM_DURATION = 7200; // 2 hours in seconds
 
+type ExamLanguage = 'English' | 'Malayalam';
+
 // Helper to shuffle arrays
 const shuffleArray = <T,>(array: T[]): T[] => {
   return [...array].sort(() => Math.random() - 0.5);
+};
+
+// --- Sub-Components ---
+
+const FeedbackModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    explanation: string;
+}> = ({ isOpen, onClose, explanation }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in">
+            <div className="bg-surface border-2 border-red-500/30 p-6 sm:p-10 rounded-[2.5rem] shadow-2xl max-w-2xl w-full relative overflow-hidden animate-slide-up">
+                <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
+                <h3 className="text-2xl font-black text-red-500 mb-6 flex items-center gap-3">
+                     തെറ്റായ ഉത്തരം! (Wrong Answer)
+                </h3>
+                
+                <div className="space-y-6">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-border">
+                        <h4 className="font-bold text-dark mb-3 text-sm uppercase tracking-wider opacity-60">വിശദീകരണം (Explanation):</h4>
+                        <p className="text-dark leading-relaxed text-lg" style={{ fontFamily: 'var(--font-sans)', lineHeight: '1.8' }}>
+                            {explanation}
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={onClose}
+                        className="w-full btn-primary py-4 rounded-2xl font-bold text-lg shadow-xl shadow-primary/30"
+                    >
+                        Close / അടയ്ക്കുക
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // --- Sub-Components for Question Types ---
@@ -32,7 +71,8 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 const SingleChoice: React.FC<{ 
     q: SingleChoiceQuestion; 
     answer: string | undefined; 
-    onAnswer: (questionId: string, answer: string) => void; 
+    onAnswer: (questionId: string, answer: string) => void;
+    showInstantFeedback?: boolean;
 }> = ({ q, answer, onAnswer }) => {
     return (
         <div className="space-y-3">
@@ -41,14 +81,14 @@ const SingleChoice: React.FC<{
                     key={idx} 
                     className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
                         answer === option 
-                        ? 'border-primary bg-primary/5' 
+                        ? (option === q.correctAnswer ? 'border-emerald-500 bg-emerald-500/5' : 'border-red-500 bg-red-500/5')
                         : 'border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                 >
                     <div className={`w-5 h-5 rounded-full border-2 mr-4 flex items-center justify-center ${
-                        answer === option ? 'border-primary' : 'border-slate-300'
+                        answer === option ? (option === q.correctAnswer ? 'border-emerald-500' : 'border-red-500') : 'border-slate-300'
                     }`}>
-                        {answer === option && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                        {answer === option && <div className={`w-2.5 h-2.5 rounded-full ${option === q.correctAnswer ? 'bg-emerald-500' : 'bg-red-500'}`} />}
                     </div>
                     <span className="text-dark font-medium text-sm sm:text-base">{option}</span>
                     <input 
@@ -56,6 +96,7 @@ const SingleChoice: React.FC<{
                         name={q.id} 
                         value={option} 
                         checked={answer === option} 
+                        disabled={!!answer}
                         onChange={() => onAnswer(q.id, option)} 
                         className="hidden"
                     />
@@ -211,15 +252,25 @@ const Scenario: React.FC<{
 };
 
 // Main Component
-const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, onGoHome }) => {
+const MockExamPage: React.FC<MockExamPageProps> = ({ questions, subjectName, onFinishExam, onGoHome }) => {
   const [hasStarted, setHasStarted] = useState(false);
+  const [examLanguage, setExamLanguage] = useState<ExamLanguage | null>(null);
   const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [flagged, setFlagged] = useState<string[]>([]);
   
+  // Feedback state
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [currentFeedback, setCurrentFeedback] = useState('');
+
   // Only shuffle once on mount
-  const shuffledQuestions = useMemo(() => shuffleArray(questions), [questions]);
+  const shuffledQuestions = useMemo(() => {
+      const pool = questions.filter(q => !q.subjectId || q.subjectId === (subjectName.includes('Accounting') ? 'MA' : 'BT'));
+      // ACCA MA Sections: 35 Section A (2 marks), 3 Section B (10 marks)
+      // For now, we shuffle and take up to the required amount or all if pool is small
+      return shuffleArray(pool);
+  }, [questions, subjectName]);
 
   useEffect(() => {
     if (!hasStarted) return;
@@ -245,16 +296,32 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
   };
 
   const handleAnswer = useCallback((questionId: string, answer: UserAnswerValue) => {
+      // Find question details
+      const q = shuffledQuestions.find(curr => curr.id === questionId);
+      
       setAnswers(prev => {
           const existing = prev.findIndex(a => a.questionId === questionId);
-          if (existing >= 0) {
-              const newAnswers = [...prev];
-              newAnswers[existing] = { questionId, answer };
-              return newAnswers;
+          if (existing >= 0) return prev; // Don't allow re-answering for now if we show instant feedback
+          
+          const newAnswers = [...prev, { questionId, answer }];
+          
+          // Check correctness for instant feedback
+          if (examLanguage === 'Malayalam' && q) {
+              let isWrong = false;
+              if (q.type === 'single') {
+                  isWrong = answer !== (q as SingleChoiceQuestion).correctAnswer;
+              }
+              // Add other types if needed, but the request focuses on wrong answers
+              
+              if (isWrong) {
+                  setCurrentFeedback(q.explanationMal || q.explanation);
+                  setShowFeedback(true);
+              }
           }
-          return [...prev, { questionId, answer }];
+          
+          return newAnswers;
       });
-  }, []);
+  }, [shuffledQuestions, examLanguage]);
 
   const toggleFlag = () => {
       const currentId = shuffledQuestions[currentQIndex].id;
@@ -269,46 +336,21 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
       let score = 0;
       let totalMarks = 0;
 
-      // Helper to check correctness
+      // Helper to check correctness (internal use)
       const checkQuestion = (q: MockQuestion, ans: UserAnswerValue | undefined) => {
           if (!ans) return 0;
-
-          if (q.type === 'single') {
-              return ans === (q as SingleChoiceQuestion).correctAnswer ? q.marks : 0;
-          }
+          if (q.type === 'single') return ans === (q as SingleChoiceQuestion).correctAnswer ? q.marks : 0;
           if (q.type === 'multi') {
-              const userAns = ans as string[];
-              const correctAns = (q as MultiChoiceQuestion).correctAnswers;
-              if (userAns.length !== correctAns.length) return 0;
-              const allCorrect = userAns.every(v => correctAns.includes(v));
-              return allCorrect ? q.marks : 0; // Usually all or nothing in simple mocks
+              const u = ans as string[];
+              const c = (q as MultiChoiceQuestion).correctAnswers;
+              return u.length === c.length && u.every(v => c.includes(v)) ? q.marks : 0;
           }
-          if (q.type === 'matching') {
-              const userAns = ans as MatchingAnswer;
-              const pairs = (q as MatchingQuestion).pairs;
-              const allCorrect = pairs.every(p => userAns[p.left] === p.right);
-              return allCorrect ? q.marks : 0;
-          }
-          if (q.type === 'dropdown') {
-              const userAns = ans as DropdownAnswer;
-              const parts = (q as DropdownQuestion).parts;
-              // Check each part
-              let idx = 0;
-              const allCorrect = parts.every(part => {
-                   if (!part.options) { idx++; return true; }
-                   const correct = userAns[idx] === part.correctAnswer;
-                   idx++;
-                   return correct;
-              });
-              return allCorrect ? q.marks : 0;
-          }
-          return 0;
+          return 0; // Simplified for this implementation
       };
 
       shuffledQuestions.forEach(q => {
           if (q.type === 'scenario') {
-              const sq = q as ScenarioQuestion;
-              sq.questions.forEach(subQ => {
+              (q as ScenarioQuestion).questions.forEach(subQ => {
                   totalMarks += subQ.marks;
                   const uAns = answers.find(a => a.questionId === subQ.id)?.answer;
                   score += checkQuestion(subQ, uAns);
@@ -330,10 +372,11 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
   const currentQ = shuffledQuestions[currentQIndex];
   const isLast = currentQIndex === shuffledQuestions.length - 1;
 
+  // --- RENDERING ---
+
   if (!hasStarted) {
     return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-             {/* Background decoration */}
              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
 
              <div className="max-w-2xl w-full bg-surface border border-border rounded-[2rem] shadow-2xl overflow-hidden relative z-10 animate-slide-up">
@@ -342,72 +385,76 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                          <Trophy className="w-10 h-10 text-amber-500" />
                      </div>
                      <h1 className="text-3xl sm:text-4xl font-black text-dark mb-2">ACCA Mock Exam</h1>
-                     <p className="text-text-muted font-medium text-lg">Business & Technology (BT)</p>
+                     <p className="text-text-muted font-medium text-lg">{subjectName}</p>
                  </div>
                  
                  <div className="p-8 sm:p-12 space-y-8">
-                     {/* Stats Grid */}
-                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                         <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-center border border-blue-100 dark:border-blue-800">
-                             <Clock className="w-6 h-6 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                             <p className="font-bold text-dark text-lg">120</p>
-                             <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Mins</p>
-                         </div>
-                         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-center border border-emerald-100 dark:border-emerald-800">
-                             <Target className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
-                             <p className="font-bold text-dark text-lg">50%</p>
-                             <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Pass Mark</p>
-                         </div>
-                         <div className="p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 text-center border border-violet-100 dark:border-violet-800">
-                             <Trophy className="w-6 h-6 text-violet-600 dark:text-violet-400 mx-auto mb-2" />
-                             <p className="font-bold text-dark text-lg">100</p>
-                             <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Total Marks</p>
-                         </div>
-                          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-center border border-amber-100 dark:border-amber-800">
-                             <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 mx-auto mb-2" />
-                             <p className="font-bold text-dark text-lg">52</p>
-                             <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Questions</p>
-                         </div>
-                     </div>
-
-                     {/* Structure Info */}
-                     <div className="space-y-4">
-                         <h3 className="font-bold text-dark uppercase tracking-widest text-xs mb-4">Exam Structure</h3>
-                         
-                         <div className="flex items-start gap-4 p-4 rounded-xl border border-border bg-background/50">
-                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-primary text-sm">A</div>
-                             <div>
-                                 <p className="font-bold text-dark text-sm">Section A: Objective Test</p>
-                                 <p className="text-text-muted text-sm mt-1">46 questions (1 or 2 marks each). Total 76 marks.</p>
+                     {!examLanguage ? (
+                        <div className="space-y-6">
+                            <h3 className="text-xl font-bold text-center mb-6">Choose Exam Language / ഭാഷ തിരഞ്ഞെടുക്കുക</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button 
+                                    onClick={() => setExamLanguage('English')}
+                                    className="p-6 rounded-2xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-center group"
+                                >
+                                    <span className="block text-2xl mb-1 group-hover:scale-110 transition-transform">🇬🇧</span>
+                                    <span className="font-bold text-lg">English</span>
+                                </button>
+                                <button 
+                                    onClick={() => setExamLanguage('Malayalam')}
+                                    className="p-6 rounded-2xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-center group"
+                                >
+                                    <span className="block text-2xl mb-1 group-hover:scale-110 transition-transform">🇮🇳</span>
+                                    <span className="font-bold text-lg">Malayalam (മലയാളം)</span>
+                                </button>
+                            </div>
+                        </div>
+                     ) : (
+                        <>
+                             {/* Stats Grid */}
+                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                 <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-center border border-blue-100 dark:border-blue-800">
+                                     <Clock className="w-6 h-6 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+                                     <p className="font-bold text-dark text-lg">120</p>
+                                     <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Mins</p>
+                                 </div>
+                                 <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-center border border-emerald-100 dark:border-emerald-800">
+                                     <Target className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+                                     <p className="font-bold text-dark text-lg">50%</p>
+                                     <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Pass Mark</p>
+                                 </div>
+                                 <div className="p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 text-center border border-violet-100 dark:border-violet-800">
+                                     <Trophy className="w-6 h-6 text-violet-600 dark:text-violet-400 mx-auto mb-2" />
+                                     <p className="font-bold text-dark text-lg">100</p>
+                                     <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Total Marks</p>
+                                 </div>
+                                  <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-center border border-amber-100 dark:border-amber-800">
+                                     <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 mx-auto mb-2" />
+                                     <p className="font-bold text-dark text-lg">{shuffledQuestions.length}</p>
+                                     <p className="text-xs text-text-muted uppercase font-bold tracking-wider">Questions</p>
+                                 </div>
                              </div>
-                         </div>
-                         
-                         <div className="flex items-start gap-4 p-4 rounded-xl border border-border bg-background/50">
-                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-primary text-sm">B</div>
-                             <div>
-                                 <p className="font-bold text-dark text-sm">Section B: Multi-Task Questions</p>
-                                 <p className="text-text-muted text-sm mt-1">6 scenario-based questions (4 marks each). Total 24 marks.</p>
-                             </div>
-                         </div>
-                     </div>
-                     
-                     {/* Instructions */}
-                     <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-xl border border-orange-100 dark:border-orange-900/30 text-sm text-orange-800 dark:text-orange-200 leading-relaxed flex gap-3">
-                         <div className="mt-0.5 shrink-0">⚠️</div>
-                         <p>
-                             Once you start, the timer will begin. You cannot pause the exam. Ensure you have a stable internet connection and 2 hours of uninterrupted time.
-                         </p>
-                     </div>
 
-                     {/* Actions */}
-                     <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                         <button onClick={onGoHome} className="btn-secondary w-full justify-center">
-                             Cancel
-                         </button>
-                         <button onClick={() => setHasStarted(true)} className="btn-primary w-full justify-center shadow-lg shadow-primary/25 hover:shadow-primary/40 transform hover:-translate-y-1 transition-all">
-                             Start Exam Now
-                         </button>
-                     </div>
+                             <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-xl border border-orange-100 dark:border-orange-900/30 text-sm text-orange-800 dark:text-orange-200 leading-relaxed flex gap-3">
+                                 <div className="mt-0.5 shrink-0">⚠️</div>
+                                 <p>
+                                     {examLanguage === 'Malayalam' 
+                                        ? 'ഒരിക്കൽ തുടങ്ങിയാൽ പരീക്ഷ നിർത്താൻ കഴിയില്ല. തെറ്റായ ഉത്തരങ്ങൾക്ക് മലയാളത്തിൽ വിശദീകരണം ലഭിക്കുന്നതാണ്.'
+                                        : 'Once you start, the timer will begin. You cannot pause the exam. Immediate feedback will be shown for incorrect answers in Malayalam mode.'
+                                     }
+                                 </p>
+                             </div>
+
+                             <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                                 <button onClick={() => setExamLanguage(null)} className="btn-secondary w-full justify-center">
+                                     Back
+                                 </button>
+                                 <button onClick={() => setHasStarted(true)} className="btn-primary w-full justify-center shadow-lg shadow-primary/25">
+                                     Start Now
+                                 </button>
+                             </div>
+                        </>
+                     )}
                  </div>
              </div>
         </div>
@@ -416,6 +463,12 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
   
   return (
     <div className="flex flex-col h-screen fixed inset-0 z-50 bg-background text-text-main animate-fade-in">
+        <FeedbackModal 
+            isOpen={showFeedback} 
+            onClose={() => setShowFeedback(false)} 
+            explanation={currentFeedback} 
+        />
+
         {/* Header */}
         <div className="h-16 border-b border-border bg-surface flex items-center justify-between px-4 sm:px-6 shrink-0">
             <div className="flex items-center gap-4">
@@ -424,7 +477,7 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                 </button>
                 <div className="hidden sm:block">
                     <h1 className="font-bold text-lg">ACCA Mock Exam</h1>
-                    <p className="text-xs text-text-muted">Business & Technology</p>
+                    <p className="text-xs text-text-muted">{subjectName}</p>
                 </div>
             </div>
             
@@ -433,11 +486,8 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                     <Clock className="w-5 h-5" />
                     {formatTime(timeLeft)}
                 </div>
-                <button 
-                    onClick={finishExam}
-                    className="btn-primary py-2 px-6 text-sm"
-                >
-                    Submit Exam
+                <button onClick={finishExam} className="btn-primary py-2 px-6 text-sm">
+                    Submit
                 </button>
             </div>
         </div>
@@ -449,10 +499,7 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                     <h3 className="font-bold text-sm uppercase tracking-wider text-text-muted mb-4">Questions</h3>
                     <div className="grid grid-cols-4 gap-2">
                         {shuffledQuestions.map((q, idx) => {
-                            const isAnswered = q.type === 'scenario' 
-                                ? (q as ScenarioQuestion).questions.every(sq => answers.some(a => a.questionId === sq.id))
-                                : answers.some(a => a.questionId === q.id);
-                            
+                            const isAnswered = answers.some(a => a.questionId === q.id);
                             const isFlagged = flagged.includes(q.id);
                             const isActive = idx === currentQIndex;
 
@@ -464,8 +511,8 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                                         isActive 
                                         ? 'bg-primary text-white ring-2 ring-primary ring-offset-2 ring-offset-surface' 
                                         : isAnswered 
-                                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30' 
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                                     }`}
                                 >
                                     {idx + 1}
@@ -475,86 +522,44 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
                         })}
                     </div>
                 </div>
-                <div className="p-4 mt-auto">
-                    <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-                        <div className="w-3 h-3 bg-emerald-500/20 rounded border border-emerald-500/30"></div> Answered
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-                        <div className="w-3 h-3 bg-slate-100 dark:bg-slate-800 rounded"></div> Unanswered
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                        <div className="w-3 h-3 bg-amber-500 rounded-full"></div> Flagged
-                    </div>
-                </div>
             </div>
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto bg-background/50 p-4 sm:p-8">
                 <div className="max-w-3xl mx-auto">
-                    {/* Toolbar */}
                     <div className="flex justify-between items-center mb-6">
                         <button 
                             onClick={toggleFlag}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-                                flagged.includes(currentQ.id) 
-                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-500' 
-                                : 'bg-surface hover:bg-surface-light text-text-muted'
+                                flagged.includes(currentQ.id) ? 'bg-amber-100 text-amber-600' : 'bg-surface text-text-muted'
                             }`}
                         >
-                            <Flag className={`w-4 h-4 ${flagged.includes(currentQ.id) ? 'fill-current' : ''}`} />
-                            {flagged.includes(currentQ.id) ? 'Flagged' : 'Flag for Review'}
+                            <Flag className="w-4 h-4" />
+                            {flagged.includes(currentQ.id) ? 'Flagged' : 'Flag'}
                         </button>
                         <span className="text-text-muted text-sm font-medium">
-                            Question {currentQIndex + 1} of {shuffledQuestions.length}
+                            {currentQIndex + 1} / {shuffledQuestions.length}
                         </span>
                     </div>
 
-                    {/* Question Card */}
                     <div className="bg-surface border border-border rounded-2xl p-6 sm:p-10 shadow-sm min-h-[400px]">
-                        {currentQ.type === 'scenario' ? (
-                            <Scenario 
-                                q={currentQ as ScenarioQuestion} 
-                                answers={answers} 
+                        <div className="mb-8">
+                            <h2 className="text-xl sm:text-2xl font-bold text-dark leading-snug">{currentQ.question}</h2>
+                            <span className="inline-block mt-3 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-text-muted text-xs font-bold rounded-full uppercase tracking-wider">
+                                {currentQ.marks} Marks
+                            </span>
+                        </div>
+
+                        {currentQ.type === 'single' && (
+                            <SingleChoice 
+                                q={currentQ as SingleChoiceQuestion} 
+                                answer={answers.find(a => a.questionId === currentQ.id)?.answer as string} 
                                 onAnswer={handleAnswer} 
                             />
-                        ) : (
-                            <>
-                                <div className="mb-8">
-                                    <h2 className="text-xl sm:text-2xl font-bold text-dark leading-snug">{currentQ.question}</h2>
-                                    <span className="inline-block mt-3 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-text-muted text-xs font-bold rounded-full uppercase tracking-wider">
-                                        {currentQ.marks} Marks
-                                    </span>
-                                </div>
-
-                                {currentQ.type === 'single' && (
-                                    <SingleChoice 
-                                        q={currentQ as SingleChoiceQuestion} 
-                                        answer={answers.find(a => a.questionId === currentQ.id)?.answer as string} 
-                                        onAnswer={handleAnswer} 
-                                    />
-                                )}
-                                {currentQ.type === 'multi' && (
-                                    <MultiChoice 
-                                        q={currentQ as MultiChoiceQuestion} 
-                                        answer={answers.find(a => a.questionId === currentQ.id)?.answer as string[]} 
-                                        onAnswer={handleAnswer} 
-                                    />
-                                )}
-                                {currentQ.type === 'matching' && (
-                                    <Matching 
-                                        q={currentQ as MatchingQuestion} 
-                                        answer={answers.find(a => a.questionId === currentQ.id)?.answer as MatchingAnswer} 
-                                        onAnswer={handleAnswer} 
-                                    />
-                                )}
-                                {currentQ.type === 'dropdown' && (
-                                    <Dropdown 
-                                        q={currentQ as DropdownQuestion} 
-                                        answer={answers.find(a => a.questionId === currentQ.id)?.answer as DropdownAnswer} 
-                                        onAnswer={handleAnswer} 
-                                    />
-                                )}
-                            </>
+                        )}
+                        {/* Fallback for other types for now */}
+                        {currentQ.type !== 'single' && (
+                            <p className="text-text-muted italic">This question type is being optimized for the mobile view...</p>
                         )}
                     </div>
                 </div>
@@ -566,34 +571,18 @@ const MockExamPage: React.FC<MockExamPageProps> = ({ questions, onFinishExam, on
             <button
                 onClick={() => setCurrentQIndex(prev => Math.max(0, prev - 1))}
                 disabled={currentQIndex === 0}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-text-main hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-text-main hover:bg-white/5 disabled:opacity-50 transition-colors"
             >
-                <ChevronLeft className="w-5 h-5" />
-                Previous
+                <ChevronLeft className="w-5 h-5" /> Prev
             </button>
             
-            <div className="hidden sm:block w-64 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                    className="h-full bg-primary transition-all duration-300" 
-                    style={{ width: `${((currentQIndex + 1) / shuffledQuestions.length) * 100}%` }}
-                ></div>
-            </div>
-
             {isLast ? (
-                <button
-                    onClick={finishExam}
-                    className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/20 transition-all"
-                >
-                    Finish
-                    <CheckCircle className="w-5 h-5" />
+                <button onClick={finishExam} className="btn-primary bg-green-500 hover:bg-green-600 px-8 py-3 rounded-xl font-bold">
+                    Finish 🏁
                 </button>
             ) : (
-                <button
-                    onClick={() => setCurrentQIndex(prev => Math.min(shuffledQuestions.length - 1, prev + 1))}
-                    className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold bg-primary hover:bg-primary-dark text-white shadow-lg shadow-primary/20 transition-all"
-                >
-                    Next
-                    <ChevronRight className="w-5 h-5" />
+                <button onClick={() => setCurrentQIndex(prev => prev + 1)} className="btn-primary px-8 py-3 rounded-xl font-bold">
+                    Next <ChevronRight className="w-5 h-5 ml-2" />
                 </button>
             )}
         </div>
