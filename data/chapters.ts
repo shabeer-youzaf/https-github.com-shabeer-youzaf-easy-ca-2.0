@@ -1388,7 +1388,8 @@ export const chapters: Chapter[] = [
       subjectId: "MA", 
       title: "Performance Measurement", 
       description: "Financial and non-financial performance indicators. The Balanced Scorecard.", 
-      content: DEFAULT_CONTENT 
+      content: DEFAULT_CONTENT,
+      malayalamAudioUrl: "https://files.catbox.moe/qteoid.mp3" 
     },
     { 
       id: 17, 
